@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define POOL_SIZE 67108864 /* 64 MB */
+#define POOL_SIZE 1 << 26 /* 64 MB */
 
 static uint8_t pool[POOL_SIZE] = {0};
 
@@ -20,29 +20,34 @@ struct block {
 
 static_assert(sizeof(struct block) == 24, "24 byte block size");
 
-size_t
-block_size(struct block *b) {
+static size_t
+block_size(struct block *b)
+{
 	return sizeof(*b) + b->data_size;
 }
 
-ptrdiff_t
-block_position(struct block *b) {
+static ptrdiff_t
+block_position(struct block *b)
+{
 	return (uint8_t *)b - pool;
 }
 
-bool
-block_in_pool(struct block *b) {
+static bool
+block_in_pool(struct block *b)
+{
 	ptrdiff_t pos = block_position(b);
 	return pos >= 0 && pos < POOL_SIZE;
 }
 
-struct block *
-next_block(struct block *b) {
+static struct block *
+next_block(struct block *b)
+{
 	return (struct block *)((char *)b + block_size(b));
 }
 
-struct block *
-block_before_space(size_t size) {
+static struct block *
+block_before_space(size_t size)
+{
 	struct block *b = (struct block *)pool;
 	for (; b->next; b = b->next) {
 		if (!block_in_pool(b->next))
@@ -53,20 +58,23 @@ block_before_space(size_t size) {
 	return b;
 }
 
-void
-join_blocks(struct block *a, struct block *b) {
+static void
+join_blocks(struct block *a, struct block *b)
+{
 	a->next = b;
 	b->prev = a;
 }
 
-void
-insert_block(struct block *x, struct block *a, struct block *b) {
+static void
+insert_block(struct block *x, struct block *a, struct block *b)
+{
 	x->next = b;
 	join_blocks(a, x);
 }
 
 void
-mempool_init(void) {
+mempool_init(void)
+{
 	size_t s = 128;
 	struct block genesis = {
 		.prev = NULL,
@@ -77,7 +85,8 @@ mempool_init(void) {
 }
 
 void *
-mempool_alloc(size_t size) {
+mempool_alloc(size_t size)
+{
 	struct block *b = block_before_space(size);
 	struct block *new = next_block(b);
 	new->data_size = size;
@@ -89,7 +98,8 @@ mempool_alloc(size_t size) {
 }
 
 void
-mempool_free(void *ptr) {
+mempool_free(void *ptr)
+{
 	struct block *b = (struct block *)ptr - 1;
 	join_blocks(b->prev, b->next);
 	DEBUG_PRINT("Freed %zu bytes at %zu\n",
